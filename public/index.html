@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#6d28d9">
+  <meta name="description" content="Magrão Imports: tênis para chegar no estilo. Nike, Adidas, Puma e muito mais.">
+  <title>Magrão Imports | Tênis no seu estilo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="announcement">
+    <span class="announcement-star">✦</span> <span id="announcementText">PISA FORTE. CHEGA NO ESTILO.</span> <span class="announcement-star">✦</span>
+    <span class="announcement-note">Novidades toda semana</span>
+  </div>
+
+  <header class="site-header">
+    <a class="brand-lockup" href="#inicio" aria-label="Magrão Imports, início">
+      <span class="brand-mark" aria-hidden="true">MI</span>
+      <span class="brand-name">MAGRÃO<span>IMPORTS</span></span>
+    </a>
+    <nav class="main-nav" aria-label="Navegação principal">
+      <a href="#produtos">Tênis</a>
+      <a href="#marcas">Marcas</a>
+      <a href="#sobre">Sobre a loja</a>
+    </nav>
+    <div class="header-actions">
+      <label class="search-box" aria-label="Buscar produtos">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 4.2 4.2"></path></svg>
+        <input id="searchInput" type="search" placeholder="Buscar tênis..." autocomplete="off">
+      </label>
+      <button class="icon-button cart-trigger" id="openCart" type="button" aria-label="Abrir carrinho">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 1.9-1.4L21 8H6"></path><circle cx="9.5" cy="20" r="1"></circle><circle cx="17.5" cy="20" r="1"></circle></svg>
+        <span class="cart-count" id="cartCount">0</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="inicio">
+      <div class="hero-copy">
+        <span class="eyebrow"><span class="eyebrow-dot"></span> SUA PRÓXIMA OBSESSÃO</span>
+        <h1 id="heroTitle" style="white-space:pre-line">O SEU ESTILO
+PEDE OUTRO
+NÍVEL.</h1>
+        <p id="heroSubtitle">Nike, Adidas, Puma, New Balance e mais. Tênis que fecham o visual, do rolê de todo dia ao destaque no feed.</p>
+        <div class="hero-actions">
+          <a class="button button-light" href="#produtos">Ver coleção <span aria-hidden="true">↗</span></a>
+          <span class="hero-microcopy"><strong>★ ★ ★ ★ ★</strong><small>Estilo sem pedir licença</small></span>
+        </div>
+        <div class="hero-sticker" aria-hidden="true"><span>FICA<br>NO<br>BRABO</span><b>✦</b></div>
+      </div>
+      <div class="hero-art" aria-label="Tênis esportivo em destaque">
+        <div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div>
+        <div class="hero-image-wrap">
+          <img class="hero-image" src="https://images.unsplash.com/photo-1683860296392-23a70637d7ef?auto=format&fit=crop&w=1400&q=88" alt="Tênis branco e roxo em fotografia de produto" loading="eager">
+        </div>
+        <div class="hero-float-card"><span class="float-spark">✦</span><div><b>DROP DA VEZ</b><small>Seu próximo favorito</small></div><span class="float-arrow">↗</span></div>
+        <span class="hero-side-note">STREETWEAR · SNEAKERS · ATITUDE</span>
+      </div>
+      <div class="hero-bottom-note"><span>↓</span> DESCE E ENCONTRA O TEU</div>
+    </section>
+
+    <section class="brand-strip" id="marcas" aria-label="Marcas disponíveis">
+      <span class="strip-label">NA VITRINE</span>
+      <button class="brand-word nike-word" data-brand="Nike">NIKE<span>®</span></button>
+      <button class="brand-word adidas-word" data-brand="Adidas">adidas</button>
+      <button class="brand-word puma-word" data-brand="Puma">PUMA</button>
+      <button class="brand-word nb-word" data-brand="New Balance">NB<span> NEW BALANCE</span></button>
+      <button class="brand-word vans-word" data-brand="Vans">VANS</button>
+    </section>
+
+    <section class="collection-section section-shell" id="produtos">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow eyebrow-purple">ESCOLHE O TEU PAR</span>
+          <h2>O DROP <span>DA VEZ.</span></h2>
+          <p>Clássicos e novidades para deixar qualquer look mais forte.</p>
+        </div>
+        <div class="catalog-tools">
+          <label class="sort-label" for="sortSelect">Ordenar por</label>
+          <select id="sortSelect" aria-label="Ordenar produtos">
+            <option value="featured">Destaques</option>
+            <option value="price-low">Menor preço</option>
+            <option value="price-high">Maior preço</option>
+            <option value="name">Nome A–Z</option>
+          </select>
+        </div>
+      </div>
+      <div class="filter-row" id="filterRow" aria-label="Filtrar por marca">
+        <button class="filter-chip active" data-brand="Todos">Todos os tênis <span class="filter-number" id="allCount">75</span></button>
+        <button class="filter-chip" data-brand="Nike">Nike</button>
+        <button class="filter-chip" data-brand="Adidas">Adidas</button>
+        <button class="filter-chip" data-brand="Puma">Puma</button>
+        <button class="filter-chip" data-brand="New Balance">New Balance</button>
+        <button class="filter-chip" data-brand="Vans">Vans</button>
+      </div>
+      <div class="results-note"><span id="resultsCount">Carregando catálogo…</span><span>Fotos ilustrativas · confira modelo, preço e disponibilidade antes da compra.</span></div>
+      <div class="product-grid" id="productGrid" aria-live="polite"></div>
+      <div class="empty-state hidden" id="emptyState"><span>👟</span><h3>Esse par fugiu do estoque.</h3><p>Tenta outra busca ou escolhe uma marca diferente.</p><button class="button button-purple" id="clearFilters">Ver todos os tênis</button></div>
+    </section>
+
+    <section class="promo-banner section-shell">
+      <div class="promo-text"><span class="eyebrow">NA MORAL, É OUTRO NÍVEL</span><h2>O LOOK COMEÇA<br>PELO <em>TÊNIS.</em></h2><p>Encontre o par que combina com o seu corre.</p><a href="#produtos" class="button button-dark">Explorar a coleção <span aria-hidden="true">↗</span></a></div>
+      <div class="promo-orb orb-a"></div><div class="promo-orb orb-b"></div>
+      <img src="https://images.unsplash.com/photo-1695552836616-37fd42c5d8e9?auto=format&fit=crop&w=1000&q=85" alt="Tênis branco com detalhes verdes" loading="lazy">
+      <span class="promo-stamp">DO SEU JEITO<br>SEM DESCULPA ✦</span>
+    </section>
+
+    <section class="why-section section-shell" id="sobre">
+      <div class="why-heading"><span class="eyebrow eyebrow-purple">POR QUE MAGRÃO?</span><h2>MENOS PAPO.<br><span>MAIS PRESENÇA.</span></h2></div>
+      <div class="why-grid">
+        <article class="why-item"><span class="why-icon">✦</span><h3>Estilo de sobra</h3><p>Modelos para combinar com a sua personalidade, não com a multidão.</p></article>
+        <article class="why-item"><span class="why-icon">↗</span><h3>Escolha sem stress</h3><p>Busque, filtre por marca e veja os tamanhos disponíveis no produto.</p></article>
+        <article class="why-item"><span class="why-icon">♡</span><h3>Seu par, suas regras</h3><p>Monte seu carrinho e confira seu pedido antes de enviar.</p></article>
+      </div>
+    </section>
+
+    <section class="newsletter-section">
+      <div class="newsletter-inner"><div><span class="eyebrow">NÃO FICA DE FORA</span><h2>O PRÓXIMO DROP<br>PODE SER O SEU.</h2></div><form id="newsletterForm" class="newsletter-form"><label for="newsletterEmail">Receba novidades</label><div><input id="newsletterEmail" type="email" placeholder="seuemail@exemplo.com" required><button class="button button-light" type="submit">Me avisa ↗</button></div><small id="newsletterMessage">Sem spam. Só tênis e novidades.</small></form></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-main"><a class="brand-lockup footer-brand" href="#inicio"><span class="brand-mark">MI</span><span class="brand-name">MAGRÃO<span>IMPORTS</span></span></a><p id="footerTagline">Seu estilo começa pelo chão. Termina lá em cima.</p><div class="footer-links"><a href="#produtos">Catálogo</a><a href="#marcas">Marcas</a><a href="#sobre">A loja</a><a href="/admin">Área do proprietário</a></div></div>
+    <div class="footer-bottom"><span>© <span id="yearNow"></span> Magrão Imports</span><span>Catálogo sujeito a estoque, preços e condições da loja.</span><a href="#inicio">Voltar ao topo ↑</a></div>
+  </footer>
+
+  <div class="overlay hidden" id="overlay"></div>
+  <aside class="cart-drawer" id="cartDrawer" aria-hidden="true" aria-label="Carrinho de compras">
+    <div class="drawer-header"><div><span class="eyebrow eyebrow-purple">SÓ MAIS UM PASSO</span><h2>SEU CARRINHO <span>✦</span></h2></div><button class="close-button" id="closeCart" aria-label="Fechar carrinho">×</button></div>
+    <div class="cart-items" id="cartItems"></div>
+    <div class="cart-empty" id="cartEmpty"><div class="empty-shoe">👟</div><h3>Seu carrinho tá de sola limpa.</h3><p>Escolhe um par e volta aqui.</p><button class="button button-purple" id="continueShopping">Ver tênis</button></div>
+    <div class="cart-footer hidden" id="cartFooter">
+      <div class="coupon-line"><input id="couponInput" placeholder="Cupom de desconto" aria-label="Cupom de desconto"><button id="applyCoupon" type="button">Aplicar</button></div><p class="coupon-feedback" id="couponFeedback" aria-live="polite">Use MAGRAO10 para testar 10% de desconto.</p>
+      <div class="summary-line"><span>Subtotal</span><strong id="subtotalValue">R$ 0,00</strong></div><div class="summary-line"><span>Frete</span><strong id="shippingValue">Calculado depois</strong></div><div class="summary-line discount-line hidden" id="discountLine"><span>Desconto</span><strong id="discountValue">− R$ 0,00</strong></div><div class="summary-total"><span>Total estimado</span><strong id="totalValue">R$ 0,00</strong></div>
+      <button class="button button-purple checkout-button" id="checkoutButton">Continuar para o pedido <span>↗</span></button><small class="cart-disclaimer">Valores ilustrativos. O pagamento ainda não é processado neste site.</small>
+    </div>
+  </aside>
+
+  <section class="modal hidden" id="productModal" role="dialog" aria-modal="true" aria-labelledby="modalProductName">
+    <button class="close-button modal-close" data-close-modal aria-label="Fechar">×</button><div class="modal-product-layout"><div class="modal-image-wrap"><img id="modalProductImage" src="" alt=""></div><div class="modal-product-info"><span class="eyebrow eyebrow-purple" id="modalBrand">MARCA</span><h2 id="modalProductName">Tênis</h2><p id="modalProductDescription"></p><div class="modal-price-row"><strong id="modalProductPrice">R$ 0,00</strong><span class="old-price" id="modalOldPrice"></span></div><div id="modalColorSelector" class="modal-color-selector hidden"></div><div class="size-label">Escolha o tamanho</div><div class="size-grid" id="sizeGrid"></div><p class="size-error" id="sizeError" aria-live="polite">Selecione um tamanho para continuar.</p><button class="button button-purple modal-add" id="modalAddButton">Adicionar ao carrinho <span>＋</span></button><small class="modal-note">Imagem e preço ilustrativos. Confirme o modelo, o estoque e a autenticidade antes de vender.</small></div></div>
+  </section>
+
+  <section class="modal checkout-modal hidden" id="checkoutModal" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle">
+    <button class="close-button modal-close" data-close-checkout aria-label="Fechar">×</button>
+    <div class="checkout-heading"><span class="eyebrow eyebrow-purple">ESTÁ QUASE</span><h2 id="checkoutTitle">FECHAR PEDIDO <span>✦</span></h2><p>Preencha os dados para montar seu pedido.</p></div>
+    <form id="checkoutForm" class="checkout-form">
+      <div class="form-grid"><label>Nome completo<input name="name" autocomplete="name" required placeholder="Como podemos te chamar?"></label><label>WhatsApp<input name="phone" autocomplete="tel" required placeholder="(31) 99999-9999" inputmode="tel"></label><label class="full-field">Endereço de entrega<input name="address" autocomplete="street-address" required placeholder="Rua, número, bairro e cidade"></label><label>CEP<input name="cep" autocomplete="postal-code" required placeholder="00000-000" inputmode="numeric"></label><label>Forma de pagamento<select name="payment" required><option value="">Selecione</option><option>Pix (combinar no WhatsApp)</option><option>Cartão (combinar no WhatsApp)</option><option>Outro (combinar no WhatsApp)</option></select></label></div>
+      <div class="checkout-review" id="checkoutReview"></div>
+      <div class="checkout-actions"><button type="button" class="button button-outline" id="backToCart">Voltar ao carrinho</button><button type="submit" class="button button-purple">Gerar pedido <span>↗</span></button></div>
+      <p class="checkout-legal">O pedido será registrado para acompanhamento da loja. O pagamento ainda não é processado pelo site; a equipe confirmará o estoque e combinará a cobrança.</p>
+    </form>
+  </section>
+
+  <section class="modal order-success hidden" id="successModal" role="dialog" aria-modal="true" aria-labelledby="successTitle">
+    <button class="close-button modal-close" data-close-success aria-label="Fechar">×</button><span class="success-icon">✓</span><span class="eyebrow eyebrow-purple">PEDIDO MONTADO</span><h2 id="successTitle">TÁ NA MÃO!</h2><p id="successMessage">Seu resumo foi preparado.</p><div class="success-order-number" id="successOrderNumber"></div><button class="button button-purple" id="finishOrder">Voltar para a loja</button><small id="successConfigNote"></small>
+  </section>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="product-colors.js?v=20261014-2"></script>
+  <script src="app.js?v=20261014-2"></script>
+</body>
+</html>

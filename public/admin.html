@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#6d28d9"><title>Painel administrativo | Magrão Imports</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body class="admin-body">
+  <section class="login-wrap" id="loginView">
+    <div class="login-art"><div class="login-logo">MI</div><p class="login-eyebrow">MAGRAO IMPORTS</p><h1>O SEU<br>NEGÓCIO.<br><span>SUAS REGRAS.</span></h1><p class="login-copy">Catálogo, pedidos e relatórios num só lugar. A porta da administração fica fechada para visitantes, como deveria ser.</p><div class="login-doodle">✦ 👟 ✦</div></div>
+    <form class="login-card" id="loginForm"><a class="back-link" href="/">← Voltar à loja</a><span class="eyebrow">ÁREA RESTRITA</span><h2>Entrar no painel</h2><p>Use as credenciais de administrador.</p><label>Usuário<input id="loginUsername" autocomplete="username" required placeholder="Seu usuário"></label><label>Senha<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Sua senha"></label><p class="form-error" id="loginError" role="alert"></p><button class="primary-button wide-button" type="submit" id="loginButton">Entrar com segurança <span>↗</span></button><div class="setup-note hidden" id="setupNote">O administrador ainda não foi configurado. No computador, execute <code>python setup_admin.py</code> e crie sua senha. No Render, configure a variável <code>ADMIN_PASSWORD_HASH</code>.</div><small>Somente o administrador autenticado pode alterar produtos, preços, pedidos e configurações.</small></form>
+  </section>
+
+  <div class="admin-app hidden" id="adminApp">
+    <aside class="sidebar"><a class="admin-brand" href="/"><span class="admin-brand-mark">MI</span><span>MAGRÃO<small>IMPORTS</small></span></a><p class="sidebar-label">LOJA</p>
+      <button class="nav-item active" data-view="dashboard"><span>▦</span> Visão geral</button><button class="nav-item" data-view="products"><span>👟</span> Produtos <b id="navProductCount">75</b></button><button class="nav-item" data-view="orders"><span>▤</span> Pedidos <b id="navOrderCount">0</b></button><button class="nav-item" data-view="customers"><span>♙</span> Clientes</button><p class="sidebar-label settings-label">CONFIGURAÇÃO</p><button class="nav-item" data-view="settings"><span>⚙</span> Loja e aparência</button>
+      <div class="sidebar-bottom"><div class="admin-status"><span class="status-dot"></span><div><strong>Área protegida</strong><small>Login administrativo</small></div></div><a class="store-link" href="/" target="_blank" rel="noreferrer">Abrir loja pública ↗</a><button class="logout-button" id="logoutButton">↪ Sair do painel</button></div>
+    </aside>
+    <main class="admin-main"><header class="admin-topbar"><div><span class="eyebrow">PAINEL DA LOJA</span><h1 id="pageTitle">Visão geral</h1></div><div class="topbar-right"><span class="date-label" id="todayLabel"></span><div class="admin-avatar">M</div></div></header><div class="toast" id="adminToast" role="status" aria-live="polite"></div><section id="adminView" class="admin-view"><div class="loading-card">Carregando painel...</div></section></main>
+  </div>
+
+  <dialog class="product-dialog" id="productDialog"><form id="productForm" method="dialog"><div class="dialog-head"><div><span class="eyebrow">CATÁLOGO</span><h2 id="productDialogTitle">Novo tênis</h2></div><button type="button" class="icon-close" id="closeProductDialog" aria-label="Fechar">×</button></div><div class="product-form-grid">
+    <label>Nome do modelo<input name="name" maxlength="120" required></label><label>Marca<input name="brand" list="brandOptions" maxlength="60" required><datalist id="brandOptions"><option>Nike</option><option>Adidas</option><option>Puma</option><option>New Balance</option><option>Vans</option><option>Asics</option><option>Reebok</option><option>Fila</option><option>Converse</option></datalist></label>
+    <label class="full-span">Descrição<textarea name="description" rows="2" maxlength="600"></textarea></label><label>Preço atual (R$)<input type="number" name="price" min="0" step="0.01" required></label><label>Preço anterior (opcional)<input type="number" name="oldPrice" min="0" step="0.01"></label><label>Estoque total (pares)<input type="number" name="stock" min="0" step="1" required></label><label>Tamanhos (separados por vírgula)<input name="sizes" placeholder="37,38,39,40,41,42,43" required></label>
+    <label class="full-span">URL da imagem<input name="image" type="text" placeholder="https://... ou envie uma foto abaixo"><small>Imagens próprias ou autorizadas são recomendadas para produtos reais.</small></label><label class="full-span file-picker">Enviar foto do computador<input type="file" name="photo" accept="image/png,image/jpeg,image/webp,image/gif"><small>PNG, JPG, WEBP ou GIF. Máximo de 5 MB.</small></label>
+    <label>Selo da vitrine<input name="badge" placeholder="MAIS PEDIDO"></label><label>Estilo da arte<select name="tone"><option value="lilac">Lilás</option><option value="mint">Verde</option><option value="pink">Rosa</option><option value="stone">Cinza</option><option value="cream">Creme</option><option value="sand">Areia</option><option value="lavender">Lavanda</option><option value="violet">Violeta</option></select></label>
+    <label class="check-label"><input type="checkbox" name="visible" checked> Visível na loja</label><label class="check-label"><input type="checkbox" name="hot"> Destacar na vitrine</label>
+  </div><p class="form-error" id="productFormError"></p><div class="dialog-actions"><button type="button" class="secondary-button" id="cancelProductForm">Cancelar</button><button type="submit" class="primary-button" id="saveProductButton">Salvar produto</button></div></form></dialog>
+  <script src="admin.js"></script>
+</body></html>
