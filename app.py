@@ -288,6 +288,83 @@ def notify_payment_confirmed(order: dict) -> None:
     )
 
 
+def asaas_request(method: str, path: str, payload: dict | None = None):
+    """Call Asaas from the server only. Never send API credentials to the browser."""
+    api_key = os.getenv('ASAAS_API_KEY', '').strip()
+    if not api_key:
+        raise RuntimeError('Pix automático ainda não foi configurado pela loja.')
+    base = os.getenv('ASAAS_API_URL', 'https://api-sandbox.asaas.com/v3').strip().rstrip('/')
+    body = json.dumps(payload, ensure_ascii=False).encode('utf-8') if payload is not None else None
+    req = urllib.request.Request(
+        base + path, data=body,
+        headers={'access_token': api_key, 'Content-Type': 'application/json', 'User-Agent': 'MagraoImports/1.0'},
+        method=method.upper()
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = json.loads(exc.read().decode('utf-8'))
+            messages = detail.get('errors') or []
+            safe_message = '; '.join(str(x.get('description') or x.get('code') or '') for x in messages)[:500]
+        except Exception:
+            safe_message = ''
+        app.logger.warning('Asaas API returned HTTP %s (%s).', exc.code, safe_message or 'no detail')
+        raise RuntimeError('Não foi possível gerar o Pix. Confira a configuração da conta Asaas e tente novamente.') from exc
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        app.logger.warning('Asaas request failed (%s).', type(exc).__name__)
+        raise RuntimeError('O serviço de pagamento está temporariamente indisponível. Tente novamente.') from exc
+
+
+def create_asaas_pix(order_number: str, customer: dict, total: float):
+    """Create customer, one-time Pix charge, and dynamic QR code for this order."""
+    cpf = re.sub(r'\D', '', str(customer.get('cpf', '')))
+    if len(cpf) != 11:
+        raise RuntimeError('Informe um CPF válido com 11 números para pagar via Pix.')
+    phone = re.sub(r'\D', '', str(customer.get('phone', '')))
+    cep = re.sub(r'\D', '', str(customer.get('cep', '')))
+    address = str(customer.get('address', '')).strip()
+    customer_payload = {
+        'name': str(customer.get('name', '')).strip(),
+        'cpfCnpj': cpf,
+        'externalReference': order_number,
+        'notificationDisabled': True,
+    }
+    if len(phone) in (10, 11): customer_payload['mobilePhone'] = phone
+    if len(cep) == 8: customer_payload['postalCode'] = cep
+    if address: customer_payload['address'] = address[:100]
+    asaas_customer = asaas_request('POST', '/customers', customer_payload)
+    asaas_customer_id = str(asaas_customer.get('id', ''))
+    if not asaas_customer_id:
+        raise RuntimeError('O provedor não retornou o cadastro do pagador. Tente novamente.')
+    due_date = datetime.now().date().isoformat()
+    charge = asaas_request('POST', '/payments', {
+        'customer': asaas_customer_id,
+        'billingType': 'PIX',
+        'value': round(float(total), 2),
+        'dueDate': due_date,
+        'description': f'Magrão Imports - Pedido {order_number}'[:255],
+        'externalReference': order_number,
+    })
+    payment_id = str(charge.get('id', ''))
+    if not payment_id:
+        raise RuntimeError('O provedor não retornou a cobrança Pix. Tente novamente.')
+    qr = asaas_request('GET', f'/payments/{payment_id}/pixQrCode')
+    encoded_image = str(qr.get('encodedImage', ''))
+    payload = str(qr.get('payload', ''))
+    if not encoded_image or not payload:
+        raise RuntimeError('O provedor não retornou o QR Code Pix. Confira se a conta Asaas está habilitada para Pix.')
+    return {
+        'customer_id': asaas_customer_id,
+        'payment_id': payment_id,
+        'encoded_image': encoded_image,
+        'payload': payload,
+        'expiration_date': str(qr.get('expirationDate', '')),
+        'status': str(charge.get('status', 'PENDING')),
+    }
+
+
 def slugify(value):
     norm = unicodedata.normalize('NFKD', str(value)).encode('ascii', 'ignore').decode('ascii').lower()
     return re.sub(r'[^a-z0-9]+', '-', norm).strip('-') or 'produto'
@@ -312,6 +389,7 @@ def create_schema():
       id INTEGER PRIMARY KEY AUTOINCREMENT, number TEXT NOT NULL UNIQUE, customer_id INTEGER NOT NULL,
       payment TEXT NOT NULL, subtotal REAL NOT NULL, shipping REAL NOT NULL, discount REAL NOT NULL, total REAL NOT NULL,
       status TEXT NOT NULL DEFAULT 'Novo', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
+      asaas_payment_id TEXT, asaas_customer_id TEXT, payment_status TEXT NOT NULL DEFAULT '', pix_encoded_image TEXT, pix_payload TEXT, pix_expiration TEXT,
       FOREIGN KEY(customer_id) REFERENCES customers(id)
     );
     CREATE TABLE IF NOT EXISTS order_items (
@@ -327,6 +405,16 @@ def create_schema():
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_products_brand ON products(brand);
     ''')
+    # Migração segura para instalações existentes que já possuem a tabela orders.
+    order_columns = {row['name'] for row in db.execute('PRAGMA table_info(orders)').fetchall()}
+    for column, definition in {
+        'asaas_payment_id': 'TEXT', 'asaas_customer_id': 'TEXT',
+        'payment_status': "TEXT NOT NULL DEFAULT ''", 'pix_encoded_image': 'TEXT',
+        'pix_payload': 'TEXT', 'pix_expiration': 'TEXT',
+    }.items():
+        if column not in order_columns:
+            db.execute(f'ALTER TABLE orders ADD COLUMN {column} {definition}')
+    db.execute('CREATE TABLE IF NOT EXISTS asaas_webhook_events (event_id TEXT PRIMARY KEY, processed_at TEXT NOT NULL)')
     for key, value in DEFAULT_SETTINGS.items():
         db.execute('INSERT OR IGNORE INTO settings(key,value) VALUES (?,?)', (key, value))
     count = db.execute('SELECT COUNT(*) AS n FROM products').fetchone()['n']
@@ -535,8 +623,14 @@ def create_order():
     address = str(customer.get('address', '')).strip()[:300]
     cep = re.sub(r'[^0-9-]', '', str(customer.get('cep', '')).strip())[:10]
     payment = str(customer.get('payment', '')).strip()[:80]
+    is_asaas_pix = payment == 'Pix automático (QR Code)'
+    cpf = re.sub(r'\D', '', str(customer.get('cpf', '')))
     if not name or len(phone) < 8 or not address or len(re.sub(r'\D', '', cep)) != 8 or not payment:
         return json_error('Confira nome, WhatsApp, endereço, CEP e forma de pagamento.')
+    if is_asaas_pix and len(cpf) != 11:
+        return json_error('Para gerar o Pix, informe seu CPF com 11 números.')
+    if is_asaas_pix and not os.getenv('ASAAS_API_KEY', '').strip():
+        return json_error('Pix automático ainda não está configurado. Escolha outra forma de pagamento ou tente mais tarde.', 503)
     if not isinstance(items, list) or not items or len(items) > 30:
         return json_error('O carrinho está vazio ou tem itens demais.')
     settings = get_settings()
@@ -575,7 +669,8 @@ def create_order():
         db.execute('INSERT INTO customers(name,phone,address,cep,created_at,updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(phone) DO UPDATE SET name=excluded.name,address=excluded.address,cep=excluded.cep,updated_at=excluded.updated_at', (name, phone, address, cep, now_iso(), now_iso()))
         customer_id = db.execute('SELECT id FROM customers WHERE phone=?', (phone,)).fetchone()['id']
         number = 'MI-' + uuid.uuid4().hex[:8].upper()
-        cursor = db.execute('INSERT INTO orders(number,customer_id,payment,subtotal,shipping,discount,total,status,created_at) VALUES (?,?,?,?,?,?,?,?,?)', (number, customer_id, payment, subtotal, shipping, discount, total, 'Novo', now_iso()))
+        initial_status = 'Aguardando pagamento' if is_asaas_pix else 'Novo'
+        cursor = db.execute('INSERT INTO orders(number,customer_id,payment,subtotal,shipping,discount,total,status,created_at,payment_status) VALUES (?,?,?,?,?,?,?,?,?,?)', (number, customer_id, payment, subtotal, shipping, discount, total, initial_status, now_iso(), 'PENDING' if is_asaas_pix else ''))
         order_id = cursor.lastrowid
         for item in safe_items:
             db.execute('INSERT INTO order_items(order_id,product_id,product_name,brand,size,qty,unit_price,line_total) VALUES (?,?,?,?,?,?,?,?)',
@@ -584,13 +679,24 @@ def create_order():
             if stock_update.rowcount != 1:
                 db.rollback(); db.close()
                 return json_error('O estoque mudou enquanto o pedido era registrado. Atualize o carrinho e tente novamente.', 409)
+        pix_details = None
+        if is_asaas_pix:
+            pix_details = create_asaas_pix(number, {'name': name, 'cpf': cpf, 'phone': phone, 'address': address, 'cep': cep}, total)
+            db.execute('UPDATE orders SET asaas_payment_id=?,asaas_customer_id=?,payment_status=?,pix_encoded_image=?,pix_payload=?,pix_expiration=? WHERE id=?',
+                       (pix_details['payment_id'], pix_details['customer_id'], pix_details['status'], pix_details['encoded_image'], pix_details['payload'], pix_details['expiration_date'], order_id))
+            initial_status = 'Aguardando pagamento'
         db.commit()
         order = {'number': number, 'createdAt': now_iso(), 'customer': {'name':name,'phone':phone,'address':address,'cep':cep,'payment':payment},
-                 'items': safe_items, 'subtotal': subtotal, 'shipping': shipping, 'discount': discount, 'total': total, 'status':'Novo'}
+                 'items': safe_items, 'subtotal': subtotal, 'shipping': shipping, 'discount': discount, 'total': total, 'status': initial_status}
+        if pix_details:
+            order['pix'] = {'qrCodeImage': 'data:image/png;base64,' + pix_details['encoded_image'], 'copyPaste': pix_details['payload'], 'expirationDate': pix_details['expiration_date'], 'paymentStatus': pix_details['status']}
         # The order is committed first; a WhatsApp outage must never undo a valid order.
         notify_new_order(order)
         send_push_notification('Novo pedido na Magrão Imports', f"Pedido {number} recebido. Total: R$ {total:.2f}.", 'pedido-' + number)
         return jsonify({'ok': True, 'order': order}), 201
+    except RuntimeError as exc:
+        db.rollback()
+        return json_error(str(exc), 503)
     except sqlite3.Error:
         db.rollback()
         app.logger.exception('Falha ao salvar pedido')
@@ -598,6 +704,60 @@ def create_order():
     finally:
         try: db.close()
         except Exception: pass
+
+
+@app.post('/webhooks/asaas')
+def asaas_webhook():
+    expected = os.getenv('ASAAS_WEBHOOK_TOKEN', '').strip()
+    received = request.headers.get('asaas-access-token', '')
+    if not expected or not secrets.compare_digest(received, expected):
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    event = request.get_json(silent=True) or {}
+    event_id = str(event.get('id', '')).strip()
+    event_type = str(event.get('event', '')).strip()
+    payment = event.get('payment') or {}
+    payment_id = str(payment.get('id', '')).strip()
+    if not event_id or not payment_id:
+        return jsonify({'ok': True, 'ignored': True}), 200
+    db = connect_db()
+    try:
+        if db.execute('SELECT 1 FROM asaas_webhook_events WHERE event_id=?', (event_id,)).fetchone():
+            return jsonify({'ok': True, 'duplicate': True}), 200
+        row = db.execute('SELECT id,number,status,total,payment_status FROM orders WHERE asaas_payment_id=?', (payment_id,)).fetchone()
+        db.execute('INSERT INTO asaas_webhook_events(event_id,processed_at) VALUES (?,?)', (event_id, now_iso()))
+        notice = None
+        if row:
+            provider_status = str(payment.get('status', '')).upper()
+            if event_type == 'PAYMENT_RECEIVED' or provider_status == 'RECEIVED':
+                db.execute("UPDATE orders SET status='Pago',payment_status='RECEIVED' WHERE id=?", (row['id'],))
+                notice_row = db.execute('SELECT o.number,o.total,c.name customer_name FROM orders o JOIN customers c ON c.id=o.customer_id WHERE o.id=?', (row['id'],)).fetchone()
+                if row['status'] != 'Pago' and notice_row: notice = dict(notice_row)
+            elif event_type == 'PAYMENT_CONFIRMED' or provider_status == 'CONFIRMED':
+                db.execute("UPDATE orders SET payment_status='CONFIRMED' WHERE id=?", (row['id'],))
+            elif event_type in ('PAYMENT_OVERDUE', 'PAYMENT_DELETED', 'PAYMENT_REFUNDED'):
+                db.execute('UPDATE orders SET payment_status=? WHERE id=?', (event_type, row['id']))
+        db.commit()
+        db.close()
+        if notice:
+            notify_payment_confirmed(notice)
+            send_push_notification('Pix confirmado!', f"Pedido {notice['number']} foi pago via Pix.", 'asaas-pago-' + notice['number'])
+        return jsonify({'ok': True}), 200
+    except sqlite3.Error:
+        db.rollback(); db.close()
+        app.logger.exception('Falha ao processar webhook Asaas')
+        return jsonify({'ok': False}), 500
+
+
+@app.get('/api/orders/<order_number>/payment-status')
+def public_order_payment_status(order_number):
+    db = connect_db()
+    row = db.execute('SELECT number,status,payment_status,pix_encoded_image,pix_payload,pix_expiration,total FROM orders WHERE number=?', (order_number,)).fetchone()
+    db.close()
+    if not row: return json_error('Pedido não encontrado.', 404)
+    result = {'number': row['number'], 'status': row['status'], 'paymentStatus': row['payment_status']}
+    if row['pix_encoded_image'] and row['pix_payload']:
+        result['pix'] = {'qrCodeImage': 'data:image/png;base64,' + row['pix_encoded_image'], 'copyPaste': row['pix_payload'], 'expirationDate': row['pix_expiration'] or ''}
+    return jsonify(result)
 
 
 @app.post('/api/admin/login')

@@ -6,6 +6,18 @@ $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const
 async function loadOrders(){try{const d=await api('/api/admin/orders');const orders=d.orders||[];$('#ordersCount').textContent=orders.length;$('#newCount').textContent=orders.filter(o=>o.status==='Novo').length;$('#paidCount').textContent=orders.filter(o=>o.status==='Pago'||o.status==='Enviado'||o.status==='Entregue').length;$('#orders').innerHTML=orders.slice(0,30).map(o=>`<article class="order"><div class="row"><strong>${esc(o.number)}</strong><span class="status">${esc(o.status)}</span></div><p style="margin:8px 0"><b>${money(o.total)}</b> <span class="muted">· ${date(o.created_at)}</span></p><p class="muted">${(o.items||[]).map(i=>`${esc(i.brand)} ${esc(i.product_name)} · tam. ${esc(i.size)} ×${esc(i.qty)}`).join('<br>')}</p></article>`).join('')||'<p class="muted">Nenhum pedido registrado ainda.</p>'}catch(e){msg($('#pushMsg'),e.message,'error')}}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}function date(v){try{return new Date(v).toLocaleString('pt-BR')}catch{return ''}}
 $('#refresh').onclick=loadOrders;$('#logout').onclick=async()=>{try{await api('/api/admin/logout',{method:'POST',body:'{}'})}finally{csrf='';await check()}};
-function urlB64ToUint8Array(base64String){const padding='='.repeat((4-base64String.length%4)%4);const raw=atob((base64String+padding).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)))}
+function urlB64ToUint8Array(value){
+  let key=String(value??'').trim();
+  // Aceita valores colados com rótulo, aspas ou quebras de linha, sem alterar a chave em si.
+  key=key.replace(/^(?:VAPID_)?PUBLIC_KEY\s*=\s*/i,'').replace(/^['\"]|['\"]$/g,'').replace(/\s+/g,'');
+  if(!key)throw new Error('A chave pública VAPID está vazia no Render.');
+  if(!/^[A-Za-z0-9+/_-]+={0,2}$/.test(key))throw new Error('A chave pública VAPID contém caracteres inválidos. No Render, deixe somente o valor da chave, sem PUBLIC_KEY= ou outros textos.');
+  key=key.replace(/-/g,'+').replace(/_/g,'/').replace(/=+$/,'');
+  if(key.length%4===1)throw new Error('A chave pública VAPID está incompleta ou foi copiada incorretamente. Gere novamente o par de chaves e atualize as duas variáveis no Render.');
+  const raw=atob(key+'='.repeat((4-key.length%4)%4));
+  const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));
+  if(bytes.length!==65||bytes[0]!==4)throw new Error('A chave pública VAPID não tem o formato esperado. Use a chave pública URL-safe gerada por py_vapid, sem cabeçalhos PEM, rótulos ou aspas.');
+  return bytes;
+}
 $('#pushBtn').onclick=async()=>{const out=$('#pushMsg');try{if(!('serviceWorker'in navigator)||!('PushManager'in window))throw new Error('Este navegador não oferece notificações push. Use Chrome ou Edge atualizado.');if(!window.isSecureContext)throw new Error('Notificações push exigem HTTPS. Publique no Render ou use localhost.');const key=(await api('/api/admin/push/public-key')).publicKey;if(!key)throw new Error('O servidor ainda não está configurado com a chave VAPID. Veja o README.');const permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('Você não autorizou notificações nas configurações do navegador.');const reg=await navigator.serviceWorker.register('/sw.js');const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8Array(key)});await api('/api/admin/push/subscribe',{method:'POST',body:JSON.stringify({subscription:sub.toJSON()})});msg(out,'Notificações ativadas neste dispositivo. Faça um pedido de teste.','ok')}catch(e){msg(out,e.message,'error')}};
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});check();

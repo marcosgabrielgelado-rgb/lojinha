@@ -127,7 +127,7 @@ O app permite ativar notificações para novo pedido, pagamento marcado como con
    ```
 
    Guarde a chave privada com segurança. Se sua versão de `py_vapid` não expuser esses métodos, consulte a documentação do pacote `pywebpush` para geração VAPID.
-2. Configure `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT` como variáveis privadas no Render (ou no `.env` local, que não deve ser publicado).
+2. Configure `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT` como variáveis privadas no Render (ou no `.env` local, que não deve ser publicado). Em `VAPID_PUBLIC_KEY`, cole somente o valor produzido após `PUBLIC_KEY=` (sem o rótulo, aspas ou cabeçalho PEM); em `VAPID_PRIVATE_KEY`, cole a chave privada correspondente completa.
 3. Faça novo deploy para instalar `pywebpush` e reinicie o serviço.
 4. Acesse `https://SEU-DOMINIO/app/`, entre com seu usuário e senha e clique em **Ativar notificações** em cada dispositivo que deseja registrar.
 5. Permita as notificações no navegador e teste com um pedido real de teste.
@@ -159,3 +159,29 @@ A vitrine agora oferece **67 opções de colorway em 29 modelos**, incluindo Nik
 - As bolinhas de cores no catálogo deslizam horizontalmente quando há muitas opções; no detalhe do produto, todas as opções ficam disponíveis.
 - `app.py` valida as cores selecionadas ao registrar o pedido e corrige imagens realmente vazias na base, sem sobrescrever URLs personalizadas ou uploads feitos pelo painel.
 - `URLS_VARIACOES_CORES.csv` reúne as URLs de colorways e as imagens de reserva para manutenção. Como são fotos hospedadas em sites externos, um fornecedor pode mudar uma URL; o site tenta as alternativas antes de mostrar o placeholder.
+
+
+## Pix automático com Asaas (Flask + Render)
+
+A loja agora tem integração opcional com Pix dinâmico por pedido. O fluxo só é ativado quando a opção **Pix automático (QR Code)** é escolhida no checkout e `ASAAS_API_KEY` está configurada. O checkout solicita CPF porque a API do Asaas exige `cpfCnpj` no cadastro do pagador. As demais formas de pagamento continuam no fluxo manual.
+
+### Variáveis no Render
+
+- `ASAAS_API_KEY`: chave de API do Asaas. Comece com uma chave de sandbox.
+- `ASAAS_API_URL`: `https://api-sandbox.asaas.com/v3` para testes; em produção, depois de validar tudo, use `https://api.asaas.com/v3` junto da chave de produção correspondente.
+- `ASAAS_WEBHOOK_TOKEN`: token aleatório forte, com pelo menos 32 caracteres, definido por você e diferente da API Key.
+
+### Configurar webhook
+
+No painel do Asaas, cadastre um webhook para `https://SEU-DOMINIO/webhooks/asaas`, usando o mesmo valor de `ASAAS_WEBHOOK_TOKEN` no campo de autenticação. Ative pelo menos os eventos `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED`, `PAYMENT_OVERDUE`, `PAYMENT_DELETED` e `PAYMENT_REFUNDED`. O endpoint valida o header `asaas-access-token` e trata eventos repetidos usando o ID do evento.
+
+### Teste antes de produção
+
+1. Use uma conta e uma chave de sandbox do Asaas.
+2. Configure as três variáveis no Render (ou no `.env` local, que nunca deve ser publicado).
+3. Configure o webhook de sandbox para a URL pública do serviço.
+4. Faça um pedido de teste selecionando Pix automático, gere o QR Code e use os recursos de teste do ambiente Asaas.
+5. Confirme que o webhook atualiza o pedido para `Pago` apenas quando o evento de recebimento é recebido.
+6. Só então troque a URL e a chave para produção. Confira as taxas na sua conta Asaas antes de vender.
+
+**Segurança:** nunca envie `.env`, API keys ou tokens do webhook ao GitHub. A confirmação do pagamento depende do webhook autêntico do provedor, não de uma tela de sucesso do navegador.

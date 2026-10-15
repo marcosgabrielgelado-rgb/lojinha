@@ -186,6 +186,8 @@ function hideOverlayIfNothingOpen(){
   if(!anyOpen){$("#overlay").classList.remove("visible");setTimeout(()=>$("#overlay").classList.add("hidden"),200);document.body.classList.remove("locked")}
 }
 function showToast(message){const toast=$("#toast");toast.textContent=message;toast.classList.add("show");clearTimeout(showToast.timeout);showToast.timeout=setTimeout(()=>toast.classList.remove("show"),2500)}
+function togglePixCpfField(){const pix=$("#paymentMethod")?.value==="Pix automático (QR Code)";const field=$("#cpfField"),input=$("#cpfInput");if(!field||!input)return;field.classList.toggle("hidden",!pix);input.required=Boolean(pix);}
+async function watchPixPayment(orderNumber){const statusNode=$("#pixPaymentStatus");if(!statusNode)return;let attempts=0;const maxAttempts=120;while(attempts++<maxAttempts&&!$("#pixPaymentPanel").classList.contains("hidden")){await new Promise(resolve=>setTimeout(resolve,5000));try{const response=await fetch(`/api/orders/${encodeURIComponent(orderNumber)}/payment-status`,{cache:"no-store"});if(!response.ok)continue;const result=await response.json();if(result.paymentStatus==="RECEIVED"||result.status==="Pago"){statusNode.textContent="Pagamento confirmado! A Magrão Imports já recebeu a confirmação. ✓";return;}if(["PAYMENT_OVERDUE","PAYMENT_DELETED","PAYMENT_REFUNDED"].includes(result.paymentStatus)){statusNode.textContent="O pagamento expirou, foi cancelado ou reembolsado. Entre em contato com a loja.";return;}}catch{}}}
 function openCheckout(){
   if(!state.cart.length){showToast("Seu carrinho ainda está vazio.");return}
   closeCart();const summary=state.cart.map(item=>{const p=productById(item.id);return `${item.qty}x ${escapeHTML(p.name)}${item.color?` · cor ${escapeHTML(item.color)}`:""} (tam. ${item.size})`}).join("<br>");
@@ -206,7 +208,7 @@ async function handleOrderSubmit(event){
   const submitButton=event.currentTarget.querySelector('button[type="submit"]');
   submitButton.disabled=true; submitButton.textContent="Registrando pedido…";
   try {
-    const response=await fetch("/api/orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customer:{name:form.get("name").trim(),phone:form.get("phone").trim(),address:form.get("address").trim(),cep:form.get("cep").trim(),payment:form.get("payment")},items:state.cart.map(item=>({id:item.id,size:item.size,qty:item.qty,color:item.color||""})),coupon:state.couponApplied?CONFIG.couponCode:""})});
+    const response=await fetch("/api/orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customer:{name:form.get("name").trim(),phone:form.get("phone").trim(),address:form.get("address").trim(),cep:form.get("cep").trim(),cpf:(form.get("cpf")||"").trim(),payment:form.get("payment")},items:state.cart.map(item=>({id:item.id,size:item.size,qty:item.qty,color:item.color||""})),coupon:state.couponApplied?CONFIG.couponCode:""})});
     const result=await response.json();
     if(!response.ok) throw new Error(result.error||"Não foi possível registrar o pedido.");
     const order=result.order;
@@ -214,11 +216,24 @@ async function handleOrderSubmit(event){
     const whatsappUrl=sendWhatsAppOrder(order,itemsText);
     const sent=Boolean(whatsappUrl);
     $("#successOrderNumber").textContent=order.number;
-    $("#successMessage").textContent=sent?"Pedido registrado na loja. Use o botão abaixo para abrir o WhatsApp e enviar o resumo.":"Pedido registrado na loja. O pagamento ainda precisa ser combinado e confirmado.";
-    $("#successConfigNote").innerHTML=sent?`<a class="button button-purple" style="display:inline-flex;margin-top:12px" href="${escapeHTML(whatsappUrl)}" target="_blank" rel="noopener noreferrer">Abrir WhatsApp e enviar pedido ↗</a><br><span style="display:inline-block;margin-top:10px">A venda só se conclui depois de confirmar estoque e pagamento.</span>`:"O pedido foi salvo no servidor e poderá ser consultado no painel administrativo. Nenhum pagamento foi cobrado.";
+    const pixPanel=$("#pixPaymentPanel");
+    pixPanel.classList.toggle("hidden",!order.pix);
+    if(order.pix){
+      $("#pixQrImage").src=order.pix.qrCodeImage;
+      $("#pixCopyPaste").value=order.pix.copyPaste;
+      $("#pixPaymentStatus").textContent="Aguardando confirmação automática do pagamento…";
+      watchPixPayment(order.number);
+    } else { $("#pixQrImage").removeAttribute("src"); $("#pixCopyPaste").value=""; }
+    $("#successMessage").textContent=order.pix?"Pedido criado! Pague pelo QR Code Pix abaixo. A loja será avisada automaticamente quando o pagamento for confirmado.":(sent?"Pedido registrado na loja. Use o botão abaixo para abrir o WhatsApp e enviar o resumo.":"Pedido registrado na loja. O pagamento ainda precisa ser combinado e confirmado.");
+    const successNotes=[];
+    if(sent) successNotes.push(`<a class="button button-purple" style="display:inline-flex;margin-top:12px" href="${escapeHTML(whatsappUrl)}" target="_blank" rel="noopener noreferrer">Abrir WhatsApp e enviar pedido ↗</a><br>`);
+    if(order.pix) successNotes.push(`<span style="display:inline-block;margin-top:10px">O status será atualizado quando o provedor confirmar o Pix.</span>`);
+    else if(sent) successNotes.push(`<span style="display:inline-block;margin-top:10px">A venda só se conclui depois de confirmar estoque e pagamento.</span>`);
+    else successNotes.push(`O pedido foi salvo no servidor. Nenhum pagamento automático foi cobrado.`);
+    $("#successConfigNote").innerHTML=successNotes.join("");
     state.cart=[];state.couponApplied=false;saveStorage();renderCart();
     try{const pr=await fetch("/api/products");if(pr.ok){PRODUCTS=(await pr.json()).products||PRODUCTS;renderProducts()}}catch{}
-    $("#checkoutModal").classList.add("hidden");$("#successModal").classList.remove("hidden");showOverlay();checkoutForm.reset();
+    $("#checkoutModal").classList.add("hidden");$("#successModal").classList.remove("hidden");showOverlay();checkoutForm.reset();togglePixCpfField();
   } catch(error) { showToast(error.message||"Erro ao registrar pedido."); }
   finally { submitButton.disabled=false; submitButton.innerHTML='Gerar pedido <span>↗</span>'; }
 }
@@ -283,7 +298,7 @@ $("#cartItems").addEventListener("click",event=>{
   if(remove){const [id,size,...colorParts]=remove.dataset.remove.split("|");const color=colorParts.join("|");state.cart=state.cart.filter(item=>!(item.id===id&&item.size===Number(size)&&(item.color||"")===color));saveStorage();renderCart()}
 });
 $("#applyCoupon").addEventListener("click",()=>{const code=$("#couponInput").value.trim().toUpperCase();if(code===CONFIG.couponCode){state.couponApplied=true;renderCart();showToast("Cupom aplicado: 10% de desconto!")}else{state.couponApplied=false;renderCart();$("#couponFeedback").textContent="Cupom não reconhecido. Confira e tente de novo.";$("#couponFeedback").classList.remove("success")}});
-$("#checkoutButton").addEventListener("click",openCheckout);$("#backToCart").addEventListener("click",()=>{closeModal("checkoutModal");openCart()});$("#checkoutForm").addEventListener("submit",handleOrderSubmit);
+$("#checkoutButton").addEventListener("click",openCheckout);$("#paymentMethod").addEventListener("change",togglePixCpfField);$("#copyPixButton").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("#pixCopyPaste").value);showToast("Código Pix copiado!")}catch{ $("#pixCopyPaste").select();showToast("Selecione e copie o código Pix.")}});$("#backToCart").addEventListener("click",()=>{closeModal("checkoutModal");openCart()});$("#checkoutForm").addEventListener("submit",handleOrderSubmit);
 $$("[data-close-modal]").forEach(button=>button.addEventListener("click",()=>closeModal("productModal")));
 $$("[data-close-checkout]").forEach(button=>button.addEventListener("click",()=>closeModal("checkoutModal")));
 $$("[data-close-success]").forEach(button=>button.addEventListener("click",()=>closeModal("successModal")));
